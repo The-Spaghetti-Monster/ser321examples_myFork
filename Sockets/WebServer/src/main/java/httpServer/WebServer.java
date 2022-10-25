@@ -23,10 +23,28 @@ class WebServer {
         OutputStream    out = null;
 
         //*** Open the server socket on the specified port
-        //*** Loop forever accepting socket requests
-        //***   Get the response bytes from createResponse
-        //***   Write the bytes to the socket's output stream
-        //***   close streams and socket appropriatels
+        try{
+            server = new ServerSocket(port);
+            //*** Loop forever accepting socket requests
+            while(true){
+                sock = server.accept();
+                //***   Get the response bytes from createResponse
+                //***   Write the bytes to the socket's output stream
+                //***   close streams and socket appropriatels
+                out = sock.getOutputStream();
+                in = sock.getInputStream();
+                byte[] response = createResponse(in);
+                out.write(response);
+                out.flush();
+                in.close();
+                out.close();
+                sock.close();
+            }
+        }
+        catch(IOException e){
+            e.printStackTrace();
+        }
+
     }
 
 

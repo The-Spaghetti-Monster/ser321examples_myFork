@@ -25,6 +25,7 @@ import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
+import org.json.*;
 
 class WebServer {
   public static void main(String args[]) {
@@ -199,6 +200,7 @@ class WebServer {
 
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           // extract path parameters
+          try{
           query_pairs = splitQuery(request.replace("multiply?", ""));
 
           // extract required fields from parameters
@@ -208,16 +210,27 @@ class WebServer {
           // do math
           Integer result = num1 * num2;
 
+
           // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Result is: " + result);
+            builder.append("HTTP/1.1 200 OK\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Result is: " + result);
+          }
+
 
           // TODO: Include error handling here with a correct error code and
           // a response that makes sense
+          catch(Exception e){
+            builder.append("HTTP/1.1 400 Bad Request\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Must Multiply Two Numbers (i.e./multiply?num1=5&num2=10). Both parameters required.");
+          }
 
-        } else if (request.contains("github?")) {
+
+        }
+        else if (request.contains("github?")) {
           // pulls the query from the request and runs it with GitHub's REST API
           // check out https://docs.github.com/rest/reference/
           //
@@ -226,19 +239,178 @@ class WebServer {
           // "Owner's repo is named RepoName. Example: find RepoName's contributors" translates to
           //     "/repos/OWNERNAME/REPONAME/contributors"
 
-          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          query_pairs = splitQuery(request.replace("github?", ""));
-          String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-          System.out.println(json);
 
-          builder.append("HTTP/1.1 200 OK\n");
+          try {
+            Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+            try {
+              query_pairs = splitQuery(request.replace("github?", ""));
+            }
+            catch(StringIndexOutOfBoundsException e){
+              e.printStackTrace();
+            }
+            String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
+            if(query_pairs.get("query") == null){
+              builder.append("HTTP/1.1 400 Bad Request, No query\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("No query");
+            }
+            else if(json.isEmpty()){
+              builder.append("HTTP/1.1 400 Bad Request, URL not Fetched\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("URL Not Fetched");
+            }
+            else {
+              System.out.println(json);
+
+              builder.append("HTTP/1.1 200 OK\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              // TODO: Parse the JSON returned by your fetch and create an appropriate
+              // response based on what the assignment document asks for
+              try {
+                JSONArray objArr = new JSONArray(json);
+                JSONObject obj;
+                JSONObject owners;
+                builder.append("[\n");
+                for (int i = 0; i < objArr.length(); i++) {
+                  obj = new JSONObject(objArr.get(i).toString());
+                  owners = new JSONObject(obj.get("owner").toString());
+                  builder.append("{" + "\"full_name\": " + obj.get("full_name") + "," + "\n");
+                  builder.append("\"id\": " + obj.get("id") + "," + "\n");
+                  builder.append("\"loginname\": " + owners.get("login") + "}");
+                }
+                builder.append("]\n");
+              } catch (JSONException e) {
+                e.printStackTrace();
+                builder.append(e.getMessage());
+                builder.append("\n\nThe JSON could not be parsed.");
+              }
+            }
+          }
+          catch(StringIndexOutOfBoundsException e){
+            e.printStackTrace();
+            builder.append(e.getMessage());
+          }
+
+
+        }
+        // guessing game
+        else if(request.contains("guess?")){
+          try {
+            int ans = random.nextInt(10);
+            Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+            query_pairs = splitQuery(request.replace("guess?", ""));
+
+            Integer num1 = Integer.parseInt(query_pairs.get("num1"));
+            Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+
+            if(num1 > 10 || num2 > 10 || num1 < 0 || num2 < 0){
+              builder.append("HTTP/1.1 400 Bad Request, Guess not in range\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("num1 and num2 must stay between 0 and 10");
+            }
+            else {
+              String output = "";
+              if(num1 != ans && num2 != ans) {
+                output = "Wrong,";
+                if (num1 > ans) {
+                  int dist = num1 - ans;
+                  output = output + " num1 is " + dist + " off";
+                }
+                else{
+                  int dist = ans - num1;
+                  output = output + " num1 is " + dist + " off";
+                }
+
+                if (num2 > ans) {
+                  int dist = num2 - ans;
+                  output = output + " and num2 is " + dist + " off";
+                }
+                else{
+                  int dist = ans - num2;
+                  output = output + " and num2 is " + dist + " off";
+                }
+              }
+              else{
+                output = "Correct the answer is: " + ans;
+              }
+              builder.append("HTTP/1.1 200 OK, Guessing game played\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append(output);
+            }
+          }
+          catch(StringIndexOutOfBoundsException e){
+            builder.append("HTTP/1.1 400 Bad Request, Neither parameter used\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append(" StringIndexOutOfBoundsException. Make sure to use all parameters");
+          }
+          catch(NumberFormatException e){
+            builder.append("HTTP/1.1 400 Bad Request, One parameter missing\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append(e.getMessage() + " Make sure to use all parameters");
+          }
+
+        }
+        else if(request.contains("palindrome?")){
+          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+          try {
+            query_pairs = splitQuery(request.replace("palindrome?", ""));
+          }
+          catch(StringIndexOutOfBoundsException e) {
+            e.printStackTrace();
+          }
+
+
+          String str1 = query_pairs.get("str1");
+          String str2 = query_pairs.get("str2");
+
+          String response1 = str1 + " is a palindrome";
+          String response2 = str2 + " is a palindrome";
+
+          if(str1 == null){
+            response1 = "str1 is null ";
+          }
+          else{
+            for(int i = 0; i<str1.length()/2; i++){
+              str1.toLowerCase();
+              boolean pal = true;
+              if(str1.charAt(i) != str1.charAt((str1.length()-1)-i)){
+                pal = false;
+                response1 = str1 + " is not a palindrome";
+                break;
+              }
+            }
+          }
+
+          if(str2 == null){
+            response2 = "str2 is null ";
+          }
+          else{
+            for(int i = 0; i<str2.length()/2; i++){
+              str1.toLowerCase();
+              boolean pal = true;
+              if(str2.charAt(i) != str2.charAt((str2.length()-1)-i)){
+                pal = false;
+                response2 = str2 + " is not a palindrome";
+                break;
+              }
+            }
+          }
+
+
+          builder.append("HTTP/1.1 200 OK, Palindrome checked\n");
           builder.append("Content-Type: text/html; charset=utf-8\n");
           builder.append("\n");
-          builder.append("Check the todos mentioned in the Java source file");
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response based on what the assignment document asks for
+          builder.append(response1 + " and " + response2);
 
-        } else {
+        }
+        else {
           // if the request is not recognized at all
 
           builder.append("HTTP/1.1 400 Bad Request\n");
