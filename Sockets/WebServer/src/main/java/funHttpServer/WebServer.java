@@ -393,7 +393,7 @@ class WebServer {
           }
           else{
             for(int i = 0; i<str2.length()/2; i++){
-              str1.toLowerCase();
+              str2.toLowerCase();
               boolean pal = true;
               if(str2.charAt(i) != str2.charAt((str2.length()-1)-i)){
                 pal = false;
